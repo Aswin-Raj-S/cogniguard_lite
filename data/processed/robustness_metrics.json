@@ -1,0 +1,11 @@
+{
+  "dataset": "data/processed/mnist_small.npz",
+  "num_samples": 500,
+  "attack": "FGSM",
+  "attack_params": {
+    "epsilon": 0.15
+  },
+  "clean_accuracy": 0.976,
+  "attacked_accuracy": 0.5,
+  "attack_success_rate_on_originally_correct": 0.48770491803278687
+}

@@ -1,0 +1,11 @@
+{
+  "dataset": "MNIST",
+  "num_samples": 1800,
+  "shape": [
+    1800,
+    1,
+    28,
+    28
+  ],
+  "file": "data/processed/mnist_small.npz"
+}

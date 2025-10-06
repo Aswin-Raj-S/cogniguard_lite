@@ -1,0 +1,6 @@
+{
+  "clean_accuracy": 0.975,
+  "triggered_accuracy": 0.95,
+  "backdoor_success_rate": 0.035897435897435895,
+  "num_samples": 200
+}

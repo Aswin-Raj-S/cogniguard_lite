@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CogniGuard-Lite</title>
+</head>
+<body style="font-family: Arial; margin: 30px;">
+  <h1>CogniGuard-Lite: AI Model Security Framework</h1>
+  <form method="POST" enctype="multipart/form-data">
+    <label for="model">Upload your AI model (.pth, .zip, .safetensors):</label><br><br>
+    <input type="file" name="model" required>
+    <button type="submit">Upload & Analyze</button>
+  </form>
+
+  {% if uploaded %}
+    <h2>Analysis Complete ✅</h2>
+    <p>All modules have been executed. Reports and visuals are ready.</p>
+    <a href="{{ url_for('view_report', filename=report_path) }}" target="_blank">
+      <button>View Report</button>
+    </a>
+    <h3>Outputs:</h3>
+    <ul>
+      {% for file in os.listdir(output_folder) %}
+        <li><a href="{{ url_for('static', filename='outputs/' ~ file) }}" target="_blank">{{ file }}</a></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</body>
+</html>

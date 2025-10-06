@@ -1,0 +1,37 @@
+[
+  {
+    "index": 0,
+    "true_label": 5,
+    "pred_label": 5,
+    "saliency_sum": 87.23238372802734,
+    "ig_sum": 10.413225173950195
+  },
+  {
+    "index": 1,
+    "true_label": 0,
+    "pred_label": 0,
+    "saliency_sum": 51.64146423339844,
+    "ig_sum": 12.156253814697266
+  },
+  {
+    "index": 2,
+    "true_label": 4,
+    "pred_label": 4,
+    "saliency_sum": 53.237735748291016,
+    "ig_sum": 9.958194732666016
+  },
+  {
+    "index": 3,
+    "true_label": 1,
+    "pred_label": 1,
+    "saliency_sum": 49.47235870361328,
+    "ig_sum": 7.762406349182129
+  },
+  {
+    "index": 4,
+    "true_label": 9,
+    "pred_label": 9,
+    "saliency_sum": 55.82633590698242,
+    "ig_sum": 7.163333892822266
+  }
+]

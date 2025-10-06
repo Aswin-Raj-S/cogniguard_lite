@@ -1,0 +1,7 @@
+torch         # PyTorch (CPU-only works)
+torchvision
+flask           # for local upload server (optional)
+numpy
+Pillow
+fpdf                # generate quick PDF report
+tqdm
