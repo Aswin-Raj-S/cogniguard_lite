@@ -32,6 +32,23 @@
         .analysis-section {
             display: none;
         }
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+            margin-bottom: 2rem;
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            color: #0d6efd;
+            margin-bottom: 1rem;
+        }
+        .model-types {
+            background: #f8f9fa;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            margin: 15px 0;
+        }
     </style>
 </head>
 <body>
@@ -43,6 +60,35 @@
         </div>
     </nav>
 
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-8 offset-lg-2 text-center">
+                    <h1 class="display-4 mb-4">AI Model Security Analysis</h1>
+                    <p class="lead mb-4">Upload your PyTorch model and get comprehensive security analysis including architecture inspection, parameter analysis, and adversarial robustness testing.</p>
+                    <div class="row mt-5">
+                        <div class="col-md-4">
+                            <i class="bi bi-cpu feature-icon d-block"></i>
+                            <h5>Architecture Analysis</h5>
+                            <p>Deep dive into model structure and parameters</p>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="bi bi-shield-exclamation feature-icon d-block"></i>
+                            <h5>Security Testing</h5>
+                            <p>Adversarial robustness and vulnerability assessment</p>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="bi bi-file-earmark-text feature-icon d-block"></i>
+                            <h5>Detailed Reports</h5>
+                            <p>Comprehensive PDF reports and visualizations</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container mt-4">
         <div class="row">
             <div class="col-lg-8 offset-lg-2">
@@ -51,20 +97,55 @@
                         <h4 class="mb-0">AI Model Security Analysis</h4>
                     </div>
                     <div class="card-body">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ 'danger' if category == 'error' else 'info' }} alert-dismissible fade show">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+
                         <form method="POST" enctype="multipart/form-data" id="upload-form">
                             <div class="upload-area" id="drop-area">
                                 <i class="bi bi-cloud-upload"></i>
-                                <h5>Drag and drop your model file here</h5>
+                                <h5 id="upload-text">Drag and drop your AI model file here</h5>
                                 <p class="text-muted">or click to select a file</p>
-                                <p class="text-muted small">Supported formats: .pth, .pt, .safetensors</p>
+                                <p class="text-muted small">Supported formats: .pth, .pt, .safetensors (Max: 500MB)</p>
                                 <input type="file" name="model" id="file-input" class="d-none" accept=".pth,.pt,.safetensors" required>
                             </div>
                             <div class="progress">
                                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-play-circle"></i> Start Analysis
+                            <button type="submit" class="btn btn-primary w-100" id="submit-btn">
+                                <i class="bi bi-play-circle"></i> Start Comprehensive Analysis
                             </button>
+                            
+                            <div class="mt-3">
+                                <h6>What will be analyzed:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="bi bi-check-circle text-success"></i> Model architecture and parameters</li>
+                                    <li><i class="bi bi-check-circle text-success"></i> Layer-wise parameter distribution</li>
+                                    <li><i class="bi bi-check-circle text-success"></i> Baseline performance evaluation</li>
+                                    <li><i class="bi bi-check-circle text-success"></i> Adversarial robustness testing (FGSM)</li>
+                                    <li><i class="bi bi-check-circle text-success"></i> Security vulnerability assessment</li>
+                                </ul>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> Analysis typically takes 2-5 minutes depending on model size
+                                </small>
+                            </div>
+                            
+                            <div class="model-types mt-4">
+                                <h6><i class="bi bi-info-circle"></i> Supported Model Types:</h6>
+                                <ul class="list-unstyled mb-0">
+                                    <li><i class="bi bi-check text-success"></i> PyTorch models (.pth, .pt)</li>
+                                    <li><i class="bi bi-check text-success"></i> SafeTensors format (.safetensors)</li>
+                                    <li><i class="bi bi-check text-success"></i> CNN, RNN, Transformer architectures</li>
+                                    <li><i class="bi bi-check text-success"></i> Classification and regression models</li>
+                                </ul>
+                            </div>
                         </form>
 
                         {% if uploaded %}
@@ -185,23 +266,55 @@
             });
 
             function updateFileName(file) {
-                const nameDisplay = dropArea.querySelector('h5');
+                const nameDisplay = document.getElementById('upload-text');
                 if (file) {
-                    nameDisplay.textContent = file.name;
+                    nameDisplay.innerHTML = `<i class="bi bi-file-check"></i> ${file.name}`;
+                    nameDisplay.classList.add('text-success');
                 }
             }
 
-            form.addEventListener('submit', function() {
+            form.addEventListener('submit', function(e) {
+                const fileInput = document.getElementById('file-input');
+                if (!fileInput.files[0]) {
+                    e.preventDefault();
+                    alert('Please select a model file first!');
+                    return;
+                }
+                
+                // Show loading state
+                const submitBtn = document.getElementById('submit-btn');
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing Model...';
+                submitBtn.disabled = true;
+                
                 progress.style.display = 'flex';
+                progressBar.innerHTML = 'Analyzing model architecture and security...';
+                
                 let width = 0;
+                const messages = [
+                    'Loading model...',
+                    'Analyzing architecture...',
+                    'Testing adversarial robustness...',
+                    'Generating visualizations...',
+                    'Creating reports...'
+                ];
+                let messageIndex = 0;
+                
                 const interval = setInterval(() => {
                     if (width >= 90) {
+                        progressBar.innerHTML = 'Finalizing analysis...';
                         clearInterval(interval);
                     } else {
-                        width += 5;
+                        width += Math.random() * 15 + 5; // Variable progress speed
+                        if (width > 100) width = 90;
                         progressBar.style.width = width + '%';
+                        
+                        // Update message occasionally
+                        if (Math.random() < 0.3 && messageIndex < messages.length - 1) {
+                            messageIndex++;
+                            progressBar.innerHTML = messages[messageIndex];
+                        }
                     }
-                }, 500);
+                }, 800);
             });
         });
     </script>

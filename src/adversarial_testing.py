@@ -71,6 +71,57 @@ def evaluate_robustness(model, x, y, attack_fn, **attack_params):
     
     return clean_acc, adv_acc, x_adv.cpu().numpy()
 
+def create_adversarial_examples_plot(original_images, adversarial_images, original_labels, predicted_labels, output_path, num_examples=6):
+    """Create a visualization showing original vs adversarial examples"""
+    fig, axes = plt.subplots(num_examples, 3, figsize=(12, 2*num_examples))
+    fig.suptitle('Adversarial Examples: Original vs Adversarial vs Difference', fontsize=16)
+    
+    for i in range(num_examples):
+        if i >= len(original_images):
+            break
+            
+        orig_img = original_images[i].reshape(28, 28)
+        adv_img = adversarial_images[i].reshape(28, 28)
+        diff_img = np.abs(orig_img - adv_img)
+        
+        # Original image
+        axes[i, 0].imshow(orig_img, cmap='gray')
+        axes[i, 0].set_title(f'orig y={original_labels[i]}')
+        axes[i, 0].axis('off')
+        
+        # Adversarial image
+        axes[i, 1].imshow(adv_img, cmap='gray')
+        axes[i, 1].set_title('adv')
+        axes[i, 1].axis('off')
+        
+        # Difference
+        axes[i, 2].imshow(diff_img, cmap='gray')
+        axes[i, 2].set_title('abs diff')
+        axes[i, 2].axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+def generate_pdf_report(results, output_path):
+    """Generate a PDF report with robustness results"""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Adversarial Robustness Report", ln=True)
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 8, f"Attack Success Rate: {results.get('attack_success_rate', 0):.2%}", ln=True)
+    pdf.cell(0, 8, f"Clean Accuracy: {results.get('clean_accuracy', 0):.2%}", ln=True)
+    pdf.cell(0, 8, f"Adversarial Accuracy: {results.get('adversarial_accuracy', 0):.2%}", ln=True)
+    
+    pdf.ln(10)
+    pdf.multi_cell(0, 8, "This report shows the model's vulnerability to adversarial attacks. " +
+                   "Higher attack success rates indicate greater vulnerability.")
+    
+    pdf.output(output_path)
+
 def run_robustness(model_path, output_folder):
     """Run robustness evaluation on the model."""
     try:
@@ -79,57 +130,167 @@ def run_robustness(model_path, output_folder):
         model.load_state_dict(torch.load(model_path, map_location="cpu"))
         model.eval()
         
-        # Load test data
-        test_data_path = Path("data/processed/mnist_small.npz")
-        if not test_data_path.exists():
+        # Load test data - try multiple possible paths
+        test_data_paths = [
+            Path("../data/processed/mnist_small.npz"),
+            Path("data/processed/mnist_small.npz"),
+            Path("../data/processed/mnist_small.npz").resolve(),
+        ]
+        
+        data_path = None
+        for path in test_data_paths:
+            if path.exists():
+                data_path = path
+                break
+        
+        if data_path is None:
             return "Robustness evaluation skipped - test data not found"
         
-        data = np.load(test_data_path)
+        data = np.load(data_path)
         X, y = data["X"], data["y"]
         
+        # Limit to first 100 examples for faster processing
+        X_sample = X[:100]
+        y_sample = y[:100]
+        
         # Run FGSM attack
-        fgsm_results = evaluate_robustness(
-            model, X, y, 
+        clean_acc, adv_acc, x_adv = evaluate_robustness(
+            model, X_sample, y_sample, 
             attack_fn=fgsm_attack,
-            epsilon=0.3
+            epsilon=0.15
         )
         
-        # Run PGD attack
-        pgd_results = evaluate_robustness(
-            model, X, y,
-            attack_fn=pgd_attack,
-            epsilon=0.3,
-            alpha=0.01,
-            iters=40
-        )
+        # Calculate attack success rate
+        attack_success_rate = 1.0 - adv_acc
         
         # Save results
         results = {
-            "fgsm": {
-                "clean_accuracy": fgsm_results[0],
-                "adversarial_accuracy": fgsm_results[1]
-            },
-            "pgd": {
-                "clean_accuracy": pgd_results[0],
-                "adversarial_accuracy": pgd_results[1]
-            }
+            "clean_accuracy": clean_acc,
+            "adversarial_accuracy": adv_acc,
+            "attack_success_rate": attack_success_rate,
+            "epsilon": 0.15,
+            "attack_type": "FGSM",
+            "num_samples": len(X_sample)
         }
         
-        out_path = Path(output_folder) / "robustness_metrics.json"
-        with open(out_path, "w") as f:
+        # Save JSON results
+        json_path = Path(output_folder) / "robustness_metrics.json"
+        with open(json_path, "w") as f:
             json.dump(results, f, indent=2)
+        
+        # Create adversarial examples visualization
+        png_path = Path(output_folder) / "adv_examples.png"
+        create_adversarial_examples_plot(
+            X_sample, x_adv, y_sample, y_sample, png_path, num_examples=6
+        )
+        
+        # Generate PDF report
+        pdf_path = Path(output_folder) / "robustness_report.pdf"
+        generate_pdf_report(results, pdf_path)
         
         # Generate summary
         summary = []
-        summary.append("Robustness Evaluation Complete:")
-        summary.append(f"FGSM Attack:")
-        summary.append(f"- Clean accuracy: {fgsm_results[0]:.4f}")
-        summary.append(f"- Adversarial accuracy: {fgsm_results[1]:.4f}")
-        summary.append(f"PGD Attack:")
-        summary.append(f"- Clean accuracy: {pgd_results[0]:.4f}")
-        summary.append(f"- Adversarial accuracy: {pgd_results[1]:.4f}")
+        summary.append("Adversarial Robustness Evaluation Complete:")
+        summary.append(f"- Clean accuracy: {clean_acc:.4f}")
+        summary.append(f"- Adversarial accuracy: {adv_acc:.4f}")
+        summary.append(f"- Attack success rate: {attack_success_rate:.4f}")
+        summary.append(f"- Epsilon: 0.15")
+        summary.append(f"- Attack type: FGSM")
         
         return "\n".join(summary)
         
     except Exception as e:
         return f"Error during robustness evaluation: {str(e)}"
+
+def main():
+    """Command line interface for adversarial testing"""
+    import argparse
+    parser = argparse.ArgumentParser(description="Test model robustness against adversarial attacks")
+    parser.add_argument("--state", required=True, help="Path to model state dict (.pth)")
+    parser.add_argument("--npz", help="Path to test data (.npz)")
+    parser.add_argument("--attack", default="fgsm", choices=["fgsm", "pgd"], help="Attack method")
+    parser.add_argument("--epsilon", type=float, default=0.15, help="Attack strength")
+    parser.add_argument("--sample_limit", type=int, default=500, help="Number of samples to test")
+    parser.add_argument("--out_json", required=True, help="Output JSON file")
+    parser.add_argument("--out_png", required=True, help="Output PNG visualization")
+    parser.add_argument("--out_pdf", required=True, help="Output PDF report")
+    
+    args = parser.parse_args()
+    
+    try:
+        # Load model
+        model = SmallCNN()
+        model.load_state_dict(torch.load(args.state, map_location="cpu"))
+        model.eval()
+        
+        # Load test data
+        if args.npz:
+            data = np.load(args.npz)
+            X, y = data["X"], data["y"]
+        else:
+            # Fallback to default path
+            data = np.load("data/processed/mnist_small.npz")
+            X, y = data["X"], data["y"]
+        
+        # Limit samples
+        X = X[:args.sample_limit]
+        y = y[:args.sample_limit]
+        
+        # Run attack
+        if args.attack == "fgsm":
+            clean_acc, adv_acc, x_adv = evaluate_robustness(
+                model, X, y, 
+                attack_fn=fgsm_attack,
+                epsilon=args.epsilon
+            )
+        else:  # pgd
+            clean_acc, adv_acc, x_adv = evaluate_robustness(
+                model, X, y,
+                attack_fn=pgd_attack,
+                epsilon=args.epsilon,
+                alpha=args.epsilon/10,
+                iters=40
+            )
+        
+        # Calculate metrics
+        attack_success_rate = 1.0 - adv_acc
+        
+        # Save results
+        results = {
+            "clean_accuracy": clean_acc,
+            "adversarial_accuracy": adv_acc,
+            "attack_success_rate": attack_success_rate,
+            "epsilon": args.epsilon,
+            "attack_type": args.attack.upper(),
+            "num_samples": len(X)
+        }
+        
+        # Save JSON
+        Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
+        with open(args.out_json, "w") as f:
+            json.dump(results, f, indent=2)
+        
+        # Create visualization
+        Path(args.out_png).parent.mkdir(parents=True, exist_ok=True)
+        create_adversarial_examples_plot(X, x_adv, y, y, args.out_png, num_examples=6)
+        
+        # Generate PDF report
+        Path(args.out_pdf).parent.mkdir(parents=True, exist_ok=True)
+        generate_pdf_report(results, args.out_pdf)
+        
+        print(f"Adversarial testing complete!")
+        print(f"Clean accuracy: {clean_acc:.4f}")
+        print(f"Adversarial accuracy: {adv_acc:.4f}")
+        print(f"Attack success rate: {attack_success_rate:.4f}")
+        print(f"Results saved to: {args.out_json}")
+        print(f"Visualization saved to: {args.out_png}")
+        print(f"Report saved to: {args.out_pdf}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return 1
+    
+    return 0
+
+if __name__ == "__main__":
+    exit(main())
